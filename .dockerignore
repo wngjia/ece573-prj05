@@ -1,0 +1,10 @@
+keys/
+secrets/
+out/
+.git/
+*.md
+*.html
+scripts/
+k8s/
+kind-cluster.yaml
+setup_vm.sh

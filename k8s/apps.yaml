@@ -1,0 +1,161 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: login-service
+spec:
+  type: NodePort
+  selector:
+    app: login-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: login-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: login-service
+  template:
+    metadata:
+      labels:
+        app: login-service
+    spec:
+      containers:
+        - name: login-service
+          image: ece573-prj05-login:v1
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          env:
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: marketplace
+            - name: POSTGRES_USER
+              value: marketplace
+            - name: POSTGRES_PASSWORD
+              value: marketplace-course-password
+            - name: JWT_PRIVATE_KEY_FILE
+              value: /app/secrets/private.pem
+            - name: ADMIN_PASSWORD_FILE
+              value: /app/secrets/admin-password
+          volumeMounts:
+            - name: credentials
+              mountPath: /app/secrets
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 25m
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: credentials
+          secret:
+            secretName: shopping-credentials
+            items:
+              - key: private.pem
+                path: private.pem
+              - key: admin-password
+                path: admin-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketplace-service
+spec:
+  type: NodePort
+  selector:
+    app: marketplace-service
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketplace-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: marketplace-service
+  template:
+    metadata:
+      labels:
+        app: marketplace-service
+    spec:
+      containers:
+        - name: marketplace-service
+          image: ece573-prj05-marketplace:v1
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: marketplace
+            - name: POSTGRES_USER
+              value: marketplace
+            - name: POSTGRES_PASSWORD
+              value: marketplace-course-password
+            - name: JWT_PUBLIC_KEY_FILE
+              value: /app/secrets/public.pem
+            - name: AUTH_ENABLED
+              value: "false"
+            - name: CASSANDRA_CONTACT_POINTS
+              value: cassandra-0.cassandra,cassandra-1.cassandra,cassandra-2.cassandra
+            - name: CASSANDRA_REPLICATION_FACTOR
+              value: "3"
+            - name: READ_CONSISTENCY
+              value: QUORUM
+            - name: WRITE_CONSISTENCY
+              value: QUORUM
+            - name: CASSANDRA_WRITE_RETRIES
+              value: "0"
+            - name: CASSANDRA_RETRY_INTERVAL
+              value: 2s
+            - name: MARKETPLACE_MAX_INFLIGHT
+              value: "8"
+            - name: MARKETPLACE_MAX_WAITING
+              value: "8"
+            - name: MARKETPLACE_QUEUE_WAIT
+              value: 2s
+          volumeMounts:
+            - name: credentials
+              mountPath: /app/secrets
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 25m
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: credentials
+          secret:
+            secretName: shopping-credentials
+            items:
+              - key: public.pem
+                path: public.pem
